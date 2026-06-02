@@ -13,3 +13,12 @@ dist/
 build/
 .venv/
 venv/
+
+# Personal CV data — stays local, never commit
+data/master_cv.md
+
+# Vector store (generated embeddings — large, rebuild from CV)
+data/vector_store/
+
+# Qodo AI tool cache
+.qodo/
