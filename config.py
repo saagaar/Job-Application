@@ -41,11 +41,26 @@ class Settings(BaseSettings):
     outputs_path: Path = _ROOT / "outputs"
     resumes_path: Path = _ROOT / "resumes" / "tailored"
 
+    # Output template — set automatically on CV upload; override in .env
+    cv_template: str = "professional"
+
+    # API server
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_reload: bool = False
+
+    # CORS — comma-separated: CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
     # App
     person_name: str = "Applicant"
     linkedin_li_at_cookie: str = ""
     google_credentials_path: str = ""
     google_sheets_spreadsheet_id: str = ""
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     model_config = SettingsConfigDict(
         env_file=str(_ROOT / ".env"),

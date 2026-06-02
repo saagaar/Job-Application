@@ -50,9 +50,10 @@ def ensure_directories() -> None:
 def check_anthropic_key(api_key: str) -> bool:
     try:
         import anthropic
+        from config import get_settings
         client = anthropic.Anthropic(api_key=api_key)
         client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=get_settings().llm_model,
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}],
         )
