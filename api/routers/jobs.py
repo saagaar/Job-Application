@@ -10,6 +10,8 @@ from config import get_settings
 from api.schemas import (
     GenerateRequest,
     GenerateResponse,
+    ImportRequest,
+    ImportResponse,
     InterviewPrepResponse,
     JobListResponse,
     ScrapeRequest,
@@ -49,6 +51,59 @@ def scrape_jobs(req: ScrapeRequest):
     )
     after = len(job_service.get_jobs())
     return {"jobs_found": after, "jobs_new": after - before}
+
+
+@router.post("/import", response_model=ImportResponse)
+def import_jobs(req: ImportRequest, db: Database = Depends(get_db)):
+    from datetime import datetime, timezone
+    from db.models import Job as JobModel
+
+    imported = skipped = 0
+    new_ids: list[int] = []
+
+    for item in req.jobs:
+        job = JobModel(
+            title=item.title,
+            company=item.company,
+            url=item.url,
+            location=item.location,
+            description=item.description,
+            source=item.source,
+            date_found=datetime.now(timezone.utc),
+        )
+        job_id = db.insert_job(job)
+        if job_id is None:
+            skipped += 1
+        else:
+            imported += 1
+            new_ids.append(job_id)
+
+    scored = 0
+    if req.score and new_ids:
+        try:
+            from agents.match_agent import MatchAgent
+            from providers.llm_factory import create_llm
+            settings = get_settings()
+            cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
+            if cv_content:
+                from services.job_service import _load_target_roles
+                target_roles = _load_target_roles(settings)
+                llm = create_llm(settings)
+                agent = MatchAgent(llm, settings, target_roles)
+                unscored = [j for j in db.get_unscored_jobs() if j.id in new_ids]
+                raw_list = [{"id": j.id, "description": j.description} for j in unscored]
+                agent.batch_score(raw_list, cv_content)
+                for item in raw_list:
+                    if item.get("match_score") is not None:
+                        db.update_job(item["id"], match_score=item["match_score"])
+                        scored += 1
+        except Exception:
+            pass
+
+    from services.job_service import _sync_exports
+    _sync_exports(db.get_all_jobs(), get_settings())
+
+    return {"imported": imported, "skipped": skipped, "scored": scored}
 
 
 @router.get("/{job_id}", response_model=Job)

@@ -13,18 +13,21 @@ from db.models import Job
 XLSX_PATH = Path(__file__).parent.parent / "jobs" / "jobs_tracker.xlsx"
 
 COLUMNS = [
-    ("id", "ID"),
-    ("title", "Job Title"),
-    ("company", "Company"),
-    ("match_score", "Match %"),
-    ("status", "Status"),
-    ("location", "Location"),
-    ("salary_range", "Salary"),
-    ("date_found", "Date Found"),
-    ("applied_date", "Applied"),
-    ("source", "Source"),
-    ("url", "URL"),
-    ("notes", "Notes"),
+    ("id",                  "ID"),
+    ("title",               "Job Title"),
+    ("company",             "Company"),
+    ("match_score",         "Match %"),
+    ("status",              "Status"),
+    ("location",            "Location"),
+    ("salary_range",        "Salary"),
+    ("date_found",          "Date Found"),
+    ("applied_date",        "Applied"),
+    ("source",              "Source"),
+    ("url",                 "URL"),
+    ("notes",               "Notes"),
+    ("cv_path",             "CV"),
+    ("cover_letter_path",   "Cover Letter"),
+    ("description",         "Job Content"),
 ]
 
 HEADER_FILL = PatternFill(start_color="1F3864", end_color="1F3864", fill_type="solid")
@@ -53,6 +56,7 @@ class ExcelExporter:
         score_col = next(i for i, (f, _) in enumerate(COLUMNS, 1) if f == "match_score")
         status_col = next(i for i, (f, _) in enumerate(COLUMNS, 1) if f == "status")
         url_col = next(i for i, (f, _) in enumerate(COLUMNS, 1) if f == "url")
+        desc_col = next(i for i, (f, _) in enumerate(COLUMNS, 1) if f == "description")
 
         for row_idx, job in enumerate(jobs, start=2):
             for col_idx, (field, _) in enumerate(COLUMNS, start=1):
@@ -65,15 +69,21 @@ class ExcelExporter:
                 if col_idx == url_col and val:
                     cell.hyperlink = val
                     cell.font = Font(color="0563C1", underline="single")
+                if col_idx == desc_col:
+                    cell.alignment = Alignment(wrap_text=True, vertical="top")
+                    ws.row_dimensions[row_idx].height = 80
 
         num_rows = len(jobs)
         if num_rows > 0:
             self._apply_score_formatting(ws, score_col, num_rows)
             self._add_status_dropdown(ws, status_col, num_rows)
 
-        # Auto-width columns
+        # Auto-width columns (description gets a fixed width — it's too long to auto-size)
         for col_idx, (field, label) in enumerate(COLUMNS, start=1):
             col_letter = get_column_letter(col_idx)
+            if field == "description":
+                ws.column_dimensions[col_letter].width = 80
+                continue
             max_len = len(label)
             for row_idx in range(2, num_rows + 2):
                 val = ws.cell(row=row_idx, column=col_idx).value
