@@ -47,20 +47,122 @@ def ensure_directories() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
 
+# ── Provider-specific key validators ──────────────────────────────────────────
+
 def check_anthropic_key(api_key: str) -> bool:
     try:
         import anthropic
-        from config import get_settings
         client = anthropic.Anthropic(api_key=api_key)
         client.messages.create(
-            model=get_settings().llm_model,
+            model="claude-haiku-4-5-20251001",
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}],
         )
         return True
     except Exception as e:
-        console.print(f"[red]API key test failed:[/red] {e}")
+        console.print(f"[red]Anthropic key test failed:[/red] {e}")
         return False
+
+
+def check_gemini_key(api_key: str) -> bool:
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, max_output_tokens=10)
+        llm.invoke("Hi")
+        return True
+    except Exception as e:
+        console.print(f"[red]Gemini key test failed:[/red] {e}")
+        return False
+
+
+def check_openai_key(api_key: str) -> bool:
+    try:
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, max_tokens=10)
+        llm.invoke("Hi")
+        return True
+    except Exception as e:
+        console.print(f"[red]OpenAI key test failed:[/red] {e}")
+        return False
+
+
+def check_ollama_connection(base_url: str) -> bool:
+    try:
+        import requests
+        resp = requests.get(f"{base_url}/api/tags", timeout=5)
+        return resp.status_code == 200
+    except Exception as e:
+        console.print(f"[red]Ollama connection failed:[/red] {e}")
+        return False
+
+
+# ── Provider dispatch ──────────────────────────────────────────────────────────
+
+def validate_llm_provider(env: dict[str, str]) -> tuple[dict[str, str], bool]:
+    """Prompt for missing keys and validate the configured LLM provider.
+
+    Returns (updated_env, changed).
+    """
+    provider = env.get("LLM_PROVIDER", "gemini").lower()
+    changed = False
+
+    if provider == "gemini":
+        if not env.get("GEMINI_API_KEY"):
+            console.print(
+                "[dim]Get a free Gemini API key at:[/dim] [cyan]https://aistudio.google.com/app/apikey[/cyan]"
+            )
+            key = Prompt.ask("[yellow]Enter your Gemini API key[/yellow]", password=True)
+            env["GEMINI_API_KEY"] = key
+            changed = True
+        console.print("[dim]Testing Gemini API key...[/dim]", end=" ")
+        if check_gemini_key(env["GEMINI_API_KEY"]):
+            console.print("[green]✓[/green]")
+        else:
+            console.print("[red]✗[/red]")
+            key = Prompt.ask("Enter a valid Gemini API key", password=True)
+            env["GEMINI_API_KEY"] = key
+            changed = True
+
+    elif provider == "anthropic":
+        if not env.get("ANTHROPIC_API_KEY"):
+            key = Prompt.ask("[yellow]Enter your Anthropic API key[/yellow]", password=True)
+            env["ANTHROPIC_API_KEY"] = key
+            changed = True
+        console.print("[dim]Testing Anthropic API key...[/dim]", end=" ")
+        if check_anthropic_key(env["ANTHROPIC_API_KEY"]):
+            console.print("[green]✓[/green]")
+        else:
+            console.print("[red]✗[/red]")
+            key = Prompt.ask("Enter a valid Anthropic API key", password=True)
+            env["ANTHROPIC_API_KEY"] = key
+            changed = True
+
+    elif provider == "openai":
+        if not env.get("OPENAI_API_KEY"):
+            key = Prompt.ask("[yellow]Enter your OpenAI API key[/yellow]", password=True)
+            env["OPENAI_API_KEY"] = key
+            changed = True
+        console.print("[dim]Testing OpenAI API key...[/dim]", end=" ")
+        if check_openai_key(env["OPENAI_API_KEY"]):
+            console.print("[green]✓[/green]")
+        else:
+            console.print("[red]✗[/red]")
+            key = Prompt.ask("Enter a valid OpenAI API key", password=True)
+            env["OPENAI_API_KEY"] = key
+            changed = True
+
+    elif provider == "ollama":
+        base_url = env.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        console.print(f"[dim]Testing Ollama connection at {base_url}...[/dim]", end=" ")
+        if check_ollama_connection(base_url):
+            console.print("[green]✓[/green]")
+        else:
+            console.print("[red]✗  Make sure Ollama is running: [bold]ollama serve[/bold][/red]")
+
+    else:
+        console.print(f"[yellow]Unknown LLM_PROVIDER '{provider}' — skipping key validation.[/yellow]")
+
+    return env, changed
 
 
 def main() -> None:
@@ -74,20 +176,11 @@ def main() -> None:
     env = load_dotenv_file()
     changed = False
 
-    # --- ANTHROPIC_API_KEY ---
-    if not env.get("ANTHROPIC_API_KEY"):
-        key = Prompt.ask("[yellow]Enter your Anthropic API key[/yellow]", password=True)
-        env["ANTHROPIC_API_KEY"] = key
-        changed = True
-
-    console.print("[dim]Testing Anthropic API key...[/dim]", end=" ")
-    if check_anthropic_key(env["ANTHROPIC_API_KEY"]):
-        console.print("[green]✓[/green]")
-    else:
-        console.print("[red]✗[/red]")
-        new_key = Prompt.ask("Enter a valid Anthropic API key", password=True)
-        env["ANTHROPIC_API_KEY"] = new_key
-        changed = True
+    # --- LLM PROVIDER KEY VALIDATION ---
+    provider = env.get("LLM_PROVIDER", "gemini")
+    console.print(f"[dim]LLM provider:[/dim] [bold]{provider}[/bold]")
+    env, key_changed = validate_llm_provider(env)
+    changed = changed or key_changed
 
     # --- PERSON_NAME ---
     if not env.get("PERSON_NAME"):
@@ -120,7 +213,11 @@ def main() -> None:
     console.print("[green]✓[/green] Directories verified")
 
     # --- DATABASE ---
-    os.environ["ANTHROPIC_API_KEY"] = env["ANTHROPIC_API_KEY"]
+    # Expose whichever key is active so LangChain can find it
+    for var in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+        if env.get(var):
+            os.environ[var] = env[var]
+
     from db.database import Database
     db = Database()
     db.init_schema()

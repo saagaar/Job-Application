@@ -22,14 +22,20 @@ class CostLoggingCallback(BaseCallbackHandler):
     def on_llm_end(self, response: Any, **kwargs: Any) -> None:
         try:
             usage = response.llm_output or {}
-            # Anthropic format: {"usage": {"input_tokens": N, "output_tokens": M}}
+            # Anthropic: {"usage": {"input_tokens": N, "output_tokens": M}}
             input_tokens = usage.get("usage", {}).get("input_tokens", 0)
             output_tokens = usage.get("usage", {}).get("output_tokens", 0)
-            # OpenAI format fallback: {"token_usage": {"prompt_tokens": N, ...}}
+            # OpenAI: {"token_usage": {"prompt_tokens": N, "completion_tokens": M}}
             if not input_tokens:
                 tu = usage.get("token_usage", {})
                 input_tokens = tu.get("prompt_tokens", 0)
                 output_tokens = tu.get("completion_tokens", 0)
+            # Gemini: usage_metadata in the first generation's generation_info
+            if not input_tokens and response.generations:
+                gen_info = (response.generations[0][0].generation_info or {}) if response.generations[0] else {}
+                um = gen_info.get("usage_metadata") or gen_info.get("usageMetadata") or {}
+                input_tokens = um.get("prompt_token_count", 0) or um.get("input_tokens", 0)
+                output_tokens = um.get("candidates_token_count", 0) or um.get("output_tokens", 0)
             model = usage.get("model") or usage.get("model_name", "unknown")
 
             self._log_path.parent.mkdir(parents=True, exist_ok=True)

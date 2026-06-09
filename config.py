@@ -9,8 +9,11 @@ _ROOT = Path(__file__).parent
 
 class Settings(BaseSettings):
     # LLM
-    llm_provider: str = "anthropic"       # anthropic | openai
-    llm_model: str = "claude-sonnet-4-6"
+    # model_type: cloud (API-based) | local (Ollama running on your machine)
+    model_type: str = "cloud"
+    # llm_provider: anthropic | openai | gemini | ollama
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-1.5-flash"   # free-tier default; change per provider
     llm_temperature: float = 0.1
     llm_max_tokens: int = 4096
     agent_max_retries: int = 5
@@ -30,9 +33,13 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_enabled: bool = True
 
-    # API keys
+    # API keys — only set the one matching your LLM_PROVIDER
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    gemini_api_key: str = ""
+
+    # Ollama (local) — URL of your running Ollama server
+    ollama_base_url: str = "http://localhost:11434"
 
     # Paths — all overridable via .env
     cv_path: Path = _ROOT / "data" / "master_cv.md"
