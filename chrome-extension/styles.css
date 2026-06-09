@@ -65,6 +65,56 @@
 #jt-toast.jt-toast-warn { border-left: 4px solid #f59e0b; }
 #jt-toast.jt-toast-info { border-left: 4px solid #0a66c2; }
 
+/* ── Job-detected banner ──────────────────────────────────────────────────── */
+#jt-banner {
+  position: fixed;
+  top: 72px;                          /* sits just below LinkedIn's sticky nav */
+  left: 50%;
+  transform: translateX(-50%) translateY(-16px);
+  z-index: 99999;
+  background: #0a66c2;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 14px 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.24);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 440px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap;
+}
+
+#jt-banner.jt-banner-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+#jt-banner-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#jt-banner-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 0 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+#jt-banner-close:hover { color: #fff; }
+
 /* ── Per-card save button ─────────────────────────────────────────────────── */
 .jt-card-btn {
   position: absolute;

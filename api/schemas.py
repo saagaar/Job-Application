@@ -5,6 +5,36 @@ from pydantic import BaseModel
 from db.models import Job, JobStatus
 
 
+class CVUploadResponse(BaseModel):
+    message: str
+    chars: int
+
+
+class CVContentResponse(BaseModel):
+    content: str
+    chars: int
+
+
+class ImportJobItem(BaseModel):
+    title: str
+    company: str
+    url: str
+    location: str = ""
+    description: str = ""
+    source: str = "extension"
+
+
+class ImportRequest(BaseModel):
+    jobs: list[ImportJobItem]
+    score: bool = True
+
+
+class ImportResponse(BaseModel):
+    imported: int
+    skipped: int
+    scored: int
+
+
 class JobListResponse(BaseModel):
     jobs: list[Job]
     total: int
