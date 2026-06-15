@@ -117,7 +117,12 @@ def _run_scraper(
 
 
 def _sync_exports(jobs: list[Job], settings: Settings) -> None:
-    ExcelExporter().export(jobs)
+    try:
+        ExcelExporter().export(jobs)
+    except Exception as e:
+        from rich.console import Console
+        Console().print(f"[yellow]Excel export failed:[/yellow] {e}")
+
     if settings.google_sheets_spreadsheet_id and settings.google_credentials_path:
         try:
             SheetsSync(

@@ -27,7 +27,55 @@
   //   - document.title follows "Job Title at Company | LinkedIn"
   //   - document.body.innerText captures everything for LLM processing
   //
-  function extractDetailJob() {
+  // Click LinkedIn's "…see more" button so the full job description is in the
+  // DOM before we scrape it — otherwise the text is truncated/clamped.
+  // Only matches a <span> with "more" text that sits inside a <button>,
+  // which itself sits inside a <p> — the structure of LinkedIn's
+  // description expander.
+  function clickSeeMore() {
+    const candidates = document.querySelectorAll('p button span');
+    for (const el of candidates) {
+      const text = el.textContent?.trim().toLowerCase().replace(/[…\.]+$/, '');
+      if (/^(see|show)?\s*more$/.test(text)) {
+        el.closest('button').click();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Find the "About the job" button/heading and read the <p> tag(s) that sit
+  // next to it — this is the actual job description, without the feed
+  // sidebar / company "About" section / footer that body-wide scraping picks up.
+  function extractAboutJobDescription() {
+    const heading = Array.from(document.querySelectorAll('button, h2, h3'))
+      .find(el => el.textContent?.trim().toLowerCase() === 'about the job');
+    if (!heading) return '';
+
+    // Walk up until we find an ancestor (or the heading itself) that has a
+    // next sibling element — that sibling holds the description content.
+    let node = heading;
+    let container = node.nextElementSibling;
+    while (!container && node.parentElement) {
+      node = node.parentElement;
+      container = node.nextElementSibling;
+    }
+    if (!container) return '';
+
+    const paragraphs = container.matches('p')
+      ? [container]
+      : Array.from(container.querySelectorAll('p'));
+
+    return paragraphs.map(p => p.innerText.trim()).filter(Boolean).join('\n\n');
+  }
+
+  // expandDescription: only true on an explicit user action (Save job click) —
+  // we don't want to click LinkedIn's UI automatically on page load/navigation.
+  async function extractDetailJob(expandDescription = false) {
+    // Expand the description first, then give the DOM a moment to re-render
+    // before reading it back out.
+    if (expandDescription && clickSeeMore()) await wait(300);
+
     // Title: read from og:title meta tag ("Job Title at Company"), strip the company suffix.
     // Falls back to document.title which follows the same pattern.
     const ogTitle = document.querySelector('meta[property="og:title"]')?.content ||
@@ -64,14 +112,16 @@
       ? `https://www.linkedin.com/jobs/view/${jobId}/`
       : window.location.href.split(/[?#]/)[0];
 
-    // Collect leaf-level <p> and <li> text in document order.
+    // Prefer the targeted "About the job" paragraphs; fall back to a
+    // body-wide leaf-level <p>/<li> scrape if that section isn't found.
     // Filtering to nodes that contain no nested p/li ensures we get the deepest
     // text at every branch without double-counting parent containers.
-    const description = Array.from(document.querySelectorAll('p, li'))
-      .filter(el => !el.querySelector('p, li'))
-      .map(el => el.innerText.trim())
-      .filter(t => t.length > 0)
-      .join('\n');
+    const description = extractAboutJobDescription() ||
+      Array.from(document.querySelectorAll('p, li'))
+        .filter(el => !el.querySelector('p, li'))
+        .map(el => el.innerText.trim())
+        .filter(t => t.length > 0)
+        .join('\n');
     const keywords = getParam('keywords') || '';
     const geoId    = getParam('geoId')    || '';
 
@@ -166,15 +216,15 @@
 
     fab.addEventListener('click', async () => {
       // Try immediately, then retry twice (detail panel may still be rendering)
-      let job = extractDetailJob();
+      let job = await extractDetailJob(true);
       if (!job) {
         showFabToast('Reading job…', 'info');
         await wait(600);
-        job = extractDetailJob();
+        job = await extractDetailJob(true);
       }
       if (!job) {
         await wait(800);
-        job = extractDetailJob();
+        job = await extractDetailJob(true);
       }
       if (!job || !job.title) {
         showFabToast('Could not read job — try clicking the listing first', 'warn');
@@ -340,7 +390,7 @@
   }
 
   // ─── Main init / re-run on navigation ────────────────────────────────────────
-  function run() {
+  async function run() {
     if (!isJobsPage()) {
       // If we navigated away from jobs, hide the FAB but keep the script alive
       const existingFab = document.getElementById('jt-fab');
@@ -355,7 +405,7 @@
 
     createFab();
     injectCardButtons();
-    const job = extractDetailJob();
+    const job = await extractDetailJob();
     if (job) showJobBanner(job);
   }
 
