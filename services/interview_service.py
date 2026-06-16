@@ -37,7 +37,9 @@ def generate_interview_prep(
     if not cv_content:
         raise ValueError("No CV content found. Fill data/master_cv.md first.")
 
-    llm = create_llm(settings)
+    _interview_provider = settings.interview_llm_provider or settings.cv_llm_provider
+    _interview_model = settings.interview_llm_model or settings.cv_llm_model
+    llm = create_llm(settings, provider=_interview_provider, model=_interview_model)
 
     # Set up RAG: index CV + job description, then retrieve context
     embeddings = create_embeddings(settings)

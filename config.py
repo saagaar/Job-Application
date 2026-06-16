@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_enabled: bool = True
 
+    # Per-agent LLM overrides — fall back to llm_provider/llm_model if not set
+    match_llm_provider: str = ""      # scoring: fast/cheap model (e.g. gemini)
+    match_llm_model: str = ""
+    cv_llm_provider: str = ""         # tailoring + cover letters: quality model (e.g. anthropic)
+    cv_llm_model: str = ""
+    interview_llm_provider: str = ""  # interview prep: falls back to cv_llm if not set
+    interview_llm_model: str = ""
+
     # API keys — only set the one matching your LLM_PROVIDER
     anthropic_api_key: str = ""
     openai_api_key: str = ""

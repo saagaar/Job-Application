@@ -27,7 +27,7 @@ def generate_application(
     if not cv_content:
         raise ValueError("master_cv.md is empty. Fill it in before generating applications.")
 
-    llm = create_llm(settings)
+    llm = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
     agent = TailorAgent(llm, settings)
     tailored = agent.tailor_cv(job.description, cv_content, job.company, job.title)
 
@@ -69,7 +69,7 @@ def generate_cover_letter(
         raise ValueError(f"Job {job_id} not found.")
 
     cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
-    llm = create_llm(settings)
+    llm = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
     agent = CoverLetterAgent(llm, settings)
     return agent.generate(job.description, cv_content, job.company, job.title, person_name)
 
@@ -82,6 +82,6 @@ def refine_cover_letter(
     from agents.cover_letter_agent import CoverLetterAgent
 
     settings = settings or get_settings()
-    llm = create_llm(settings)
+    llm = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
     agent = CoverLetterAgent(llm, settings)
     return agent.refine(draft, feedback)

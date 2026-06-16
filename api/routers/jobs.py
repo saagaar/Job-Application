@@ -88,7 +88,7 @@ def import_jobs(req: ImportRequest, db: Database = Depends(get_db)):
             if cv_content:
                 from services.job_service import _load_target_roles
                 target_roles = _load_target_roles(settings)
-                llm = create_llm(settings)
+                llm = create_llm(settings, provider=settings.match_llm_provider, model=settings.match_llm_model)
                 agent = MatchAgent(llm, settings, target_roles)
                 unscored = [j for j in db.get_unscored_jobs() if j.id in new_ids]
                 raw_list = [{"id": j.id, "description": j.description} for j in unscored]

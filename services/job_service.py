@@ -54,7 +54,7 @@ def find_and_score_jobs(
         db.log_scrape_run(source, len(scraper_jobs), new_count)
 
     if not skip_scoring and all_new:
-        llm = create_llm(settings)
+        llm = create_llm(settings, provider=settings.match_llm_provider, model=settings.match_llm_model)
         agent = MatchAgent(llm, settings, target_roles)
         unscored = db.get_unscored_jobs()
         raw_list = [{"id": j.id, "description": j.description} for j in unscored]
