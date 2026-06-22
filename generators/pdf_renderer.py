@@ -48,8 +48,10 @@ class PdfRenderer:
         pdf.add_page()
 
         for el in elements:
-            kind = el["type"]
-            text = _to_latin1(el["text"])
+            kind     = el["type"]
+            text     = _to_latin1(el["text"])
+            centered = el.get("centered", False)
+
             if not text.strip():
                 pdf.ln(3)
                 continue
@@ -82,17 +84,23 @@ class PdfRenderer:
             else:
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(0, 0, 0)
-                pdf.multi_cell(0, 5, text)
+                if centered:
+                    pdf.cell(0, 5, text, ln=True, align="C")
+                else:
+                    pdf.multi_cell(0, 5, text)
 
         pdf.output(str(out_path))
         return out_path
 
     def _docx_to_elements(self, doc: Document) -> list[dict]:
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
         elements = []
         paragraphs = list(doc.paragraphs)
         for i, para in enumerate(paragraphs):
             text = para.text.strip()
             style_name = (para.style.name or "").lower()
+            centered = para.alignment == WD_ALIGN_PARAGRAPH.CENTER
 
             if i == 0 and para.runs and para.runs[0].font.size and para.runs[0].font.size.pt >= 16:
                 kind = "name_header"
@@ -107,7 +115,7 @@ class PdfRenderer:
             else:
                 kind = "body"
 
-            elements.append({"type": kind, "text": text})
+            elements.append({"type": kind, "text": text, "centered": centered})
         return elements
 
     def _try_macos_textutil(self, docx_path: Path, pdf_path: Path) -> bool:

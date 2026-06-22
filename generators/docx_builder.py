@@ -134,7 +134,8 @@ class DocxBuilder:
                 p = doc.add_paragraph()
                 p.paragraph_format.space_after = Pt(2)
                 label = label_map.get(key, key.replace("_", " ").capitalize())
-                _apply_font(p.add_run(f"{label}: "), {**fonts["body"], "bold": True})
+                # Label: colour only (no bold) so values never inherit highlight
+                _apply_font(p.add_run(f"{label}: "), {**fonts["body"], "color": "2E74B5"})
                 _apply_font(p.add_run(", ".join(items)), fonts["body"])
 
         # ── Experience ────────────────────────────────────────────────────────
