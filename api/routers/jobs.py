@@ -240,6 +240,7 @@ def generate_cover_letter_endpoint(job_id: int, db: Database = Depends(get_db)):
         person_email=settings.person_email,
         person_phone=settings.person_phone,
         person_address=settings.person_address,
+        person_linkedin=settings.person_linkedin,
     )
 
     # 1. DB blob + path
