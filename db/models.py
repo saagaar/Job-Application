@@ -26,11 +26,15 @@ class Job(BaseModel):
     salary_range: Optional[str] = None
     # default_factory ensures date is set at creation time even when not provided
     date_found: Optional[datetime] = Field(default_factory=datetime.utcnow)
-    match_score: Optional[float] = None
+    match_score:    Optional[float] = None
+    match_skills:   Optional[str] = None   # JSON array string e.g. '["Node.js","TypeScript"]'
+    match_gaps:     Optional[str] = None   # JSON array string
+    match_reasoning: Optional[str] = None
     status: JobStatus = JobStatus.NEW
     notes: Optional[str] = None
     applied_date: Optional[datetime] = None
     cv_path: Optional[str] = None
     cover_letter_path: Optional[str] = None
+    cover_letter_content: Optional[str] = None
 
     model_config = {"from_attributes": True}

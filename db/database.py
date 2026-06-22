@@ -21,11 +21,15 @@ CREATE TABLE IF NOT EXISTS jobs (
     salary_range        TEXT,
     date_found          TEXT    NOT NULL,
     match_score         REAL,
+    match_skills        TEXT,
+    match_gaps          TEXT,
+    match_reasoning     TEXT,
     status              TEXT    NOT NULL DEFAULT 'new',
     notes               TEXT,
     applied_date        TEXT,
-    cv_path             TEXT,
-    cover_letter_path   TEXT
+    cv_path               TEXT,
+    cover_letter_path     TEXT,
+    cover_letter_content  TEXT
 )
 """
 
@@ -62,6 +66,11 @@ class Database:
         with self._connect() as conn:
             conn.execute(CREATE_TABLE)
             conn.execute(CREATE_SCRAPE_RUNS)
+            for col in ("match_skills", "match_gaps", "match_reasoning", "cover_letter_content"):
+                try:
+                    conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} TEXT")
+                except Exception:
+                    pass  # column already exists
 
     def insert_job(self, job: Job) -> Optional[int]:
         sql = """

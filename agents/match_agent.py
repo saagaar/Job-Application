@@ -21,7 +21,7 @@ Scoring rubric:
 - 0-39:   Weak match. Different domain or seniority level.
 
 Return ONLY this JSON:
-{{"score": <int 0-100>, "matching_skills": ["skill1", ...], "gaps": ["gap1", ...], "reasoning": "<2 sentences max>"}}
+{{{{"score": <int 0-100>, "matching_skills": ["skill1", ...], "gaps": ["gap1", ...], "reasoning": "<2 sentences max>"}}}}
 """
 
 

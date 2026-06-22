@@ -71,3 +71,22 @@ class GenerateResponse(BaseModel):
 
 class InterviewPrepResponse(BaseModel):
     output_path: str
+
+
+class ScoreResponse(BaseModel):
+    scored: int
+    failed: int
+    error: str = ""
+
+
+class SingleJobScoreResponse(BaseModel):
+    job_id: int
+    score: float
+    matching_skills: list[str]
+    gaps: list[str]
+    reasoning: str
+
+
+class CoverLetterResponse(BaseModel):
+    content: str
+    docx_path: str

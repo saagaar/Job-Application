@@ -51,6 +51,7 @@ class Settings(BaseSettings):
 
     # Paths — all overridable via .env
     cv_path: Path = _ROOT / "data" / "master_cv.md"
+    personal_stories_path: Path = _ROOT / "data" / "personal_stories.md"
     target_roles_path: Path = _ROOT / "data" / "target_roles.md"
     cost_log_path: Path = _ROOT / "jobs" / "cost_log.jsonl"
     outputs_path: Path = _ROOT / "outputs"

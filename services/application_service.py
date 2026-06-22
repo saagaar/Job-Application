@@ -60,7 +60,9 @@ def generate_cover_letter(
     person_name: str,
     settings: Settings | None = None,
 ) -> str:
+    import json
     from agents.cover_letter_agent import CoverLetterAgent
+    from services.company_research import research_company
 
     settings = settings or get_settings()
     db = Database()
@@ -69,9 +71,27 @@ def generate_cover_letter(
         raise ValueError(f"Job {job_id} not found.")
 
     cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
-    llm = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
+
+    personal_stories = ""
+    if settings.personal_stories_path.exists():
+        personal_stories = settings.personal_stories_path.read_text(encoding="utf-8").strip()
+
+    matching_skills = json.loads(job.match_skills) if job.match_skills else []
+    gaps            = json.loads(job.match_gaps)   if job.match_gaps   else []
+    reasoning       = job.match_reasoning or ""
+
+    company_research = research_company(job.company)
+
+    llm   = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
     agent = CoverLetterAgent(llm, settings)
-    return agent.generate(job.description, cv_content, job.company, job.title, person_name)
+    return agent.generate(
+        job.description, cv_content, job.company, job.title, person_name,
+        matching_skills=matching_skills,
+        gaps=gaps,
+        reasoning=reasoning,
+        personal_stories=personal_stories,
+        company_research=company_research,
+    )
 
 
 def refine_cover_letter(

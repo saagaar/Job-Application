@@ -7,7 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.deps import get_db
 from config import get_settings
+from providers.llm_factory import llm_error_message
 from api.schemas import (
+    ScoreResponse,
+    SingleJobScoreResponse,
+    CoverLetterResponse,
     GenerateRequest,
     GenerateResponse,
     ImportRequest,
@@ -106,6 +110,134 @@ def import_jobs(req: ImportRequest, db: Database = Depends(get_db)):
     return {"imported": imported, "skipped": skipped, "scored": scored}
 
 
+@router.post("/score", response_model=ScoreResponse)
+def score_jobs(db: Database = Depends(get_db)):
+    """Score all unscored jobs in the database against the master CV."""
+    from agents.match_agent import MatchAgent
+    from providers.llm_factory import create_llm
+    from services.job_service import _load_target_roles, _sync_exports
+
+    settings = get_settings()
+    cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
+    if not cv_content:
+        raise HTTPException(status_code=400, detail="master_cv.md is empty — fill it in first.")
+
+    unscored = db.get_unscored_jobs()
+    if not unscored:
+        return {"scored": 0, "failed": 0}
+
+    target_roles = _load_target_roles(settings)
+    llm = create_llm(settings, provider=settings.match_llm_provider, model=settings.match_llm_model)
+    agent = MatchAgent(llm, settings, target_roles)
+
+    # Call score_job() directly rather than batch_score() — batch_score uses
+    # Rich Progress which blocks in a non-TTY server context.
+    # Fail fast on the first error to avoid burning retries across all jobs.
+    scored = failed = 0
+    last_error = ""
+    for job in unscored:
+        try:
+            result = agent.score_job(job.description, cv_content)
+            import json
+            db.update_job(
+                job.id,
+                match_score=result["score"],
+                match_skills=json.dumps(result["matching_skills"]),
+                match_gaps=json.dumps(result["gaps"]),
+                match_reasoning=result["reasoning"],
+            )
+            scored += 1
+        except Exception as e:
+            last_error = llm_error_message(e)
+            failed += 1
+            if scored == 0 and failed == 1:
+                break  # stop immediately on first failure — likely a config/auth error
+
+    _sync_exports(db.get_all_jobs(), settings)
+    return {"scored": scored, "failed": failed, "error": last_error}
+
+
+@router.post("/{job_id}/score", response_model=SingleJobScoreResponse)
+def score_job_by_id(job_id: int, db: Database = Depends(get_db)):
+    from agents.match_agent import MatchAgent
+    from providers.llm_factory import create_llm
+    from services.job_service import _load_target_roles, _sync_exports
+
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    settings = get_settings()
+    cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
+    if not cv_content:
+        raise HTTPException(status_code=400, detail="master_cv.md is empty — fill it in first.")
+
+    target_roles = _load_target_roles(settings)
+    llm = create_llm(settings, provider=settings.match_llm_provider, model=settings.match_llm_model)
+    agent = MatchAgent(llm, settings, target_roles)
+
+    try:
+        result = agent.score_job(job.description, cv_content)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=llm_error_message(e))
+
+    import json
+    db.update_job(
+        job_id,
+        match_score=result["score"],
+        match_skills=json.dumps(result["matching_skills"]),
+        match_gaps=json.dumps(result["gaps"]),
+        match_reasoning=result["reasoning"],
+    )
+    _sync_exports(db.get_all_jobs(), settings)
+
+    return {
+        "job_id": job_id,
+        "score": result["score"],
+        "matching_skills": result["matching_skills"],
+        "gaps": result["gaps"],
+        "reasoning": result["reasoning"],
+    }
+
+
+@router.post("/{job_id}/cover-letter", response_model=CoverLetterResponse)
+def generate_cover_letter_endpoint(job_id: int, db: Database = Depends(get_db)):
+    from generators.cover_letter_pdf import render_cover_letter_pdf
+    from services.job_service import _sync_exports
+
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    settings = get_settings()
+    person_name = settings.person_name
+
+    try:
+        content = application_service.generate_cover_letter(job_id, person_name)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=llm_error_message(e))
+
+    # Append signature
+    signed_content = f"{content}\n\nBest regards,\n{person_name}"
+
+    # 3. PDF → outputs/{company}/{person}_coverletter.pdf
+    pdf_path = render_cover_letter_pdf(
+        signed_content, person_name, job.company, settings.outputs_path
+    )
+
+    # 1. DB blob + path
+    db.update_job(
+        job_id,
+        cover_letter_content=signed_content,
+        cover_letter_path=str(pdf_path),
+    )
+
+    # 2. Excel sync (cover_letter_content + cover_letter_path columns)
+    _sync_exports(db.get_all_jobs(), settings)
+
+    return {"content": signed_content, "docx_path": str(pdf_path)}
+
+
 @router.get("/{job_id}", response_model=Job)
 def get_job(job_id: int, db: Database = Depends(get_db)):
     job = db.get_job(job_id)
@@ -146,14 +278,16 @@ def generate(job_id: int, req: GenerateRequest):
     import os
     person_name = os.environ.get("PERSON_NAME", "Applicant")
     cover_letter_content = None
-    if not req.skip_cover_letter:
-        cover_letter_content = application_service.generate_cover_letter(job_id, person_name)
     try:
+        if not req.skip_cover_letter:
+            cover_letter_content = application_service.generate_cover_letter(job_id, person_name)
         paths = application_service.generate_application(
             job_id, template=req.template, cover_letter_content=cover_letter_content
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=llm_error_message(e))
     return {
         "cv_docx": str(paths.get("cv_docx", "")),
         "cv_pdf": str(paths.get("cv_pdf", "")),
@@ -168,4 +302,6 @@ def interview_prep(job_id: int):
         out_path = interview_service.generate_interview_prep(job_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=llm_error_message(e))
     return {"output_path": str(out_path)}

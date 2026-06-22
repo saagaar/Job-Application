@@ -5,6 +5,17 @@ from langchain_core.language_models import BaseChatModel
 from config import Settings
 
 
+def llm_error_message(exc: Exception) -> str:
+    """Return a concise, user-facing message from an LLM provider exception.
+
+    Provider errors (Gemini 429, Anthropic auth, OpenAI rate-limit, etc.) embed
+    their human-readable text in the first line of str(exc). We grab that and
+    trim it so the API response stays readable.
+    """
+    first_line = str(exc).split("\n")[0].strip()
+    return first_line[:400] if len(first_line) > 400 else first_line
+
+
 def create_llm(
     settings: Settings,
     provider: str = "",
@@ -50,6 +61,8 @@ def create_llm(
             google_api_key=settings.gemini_api_key,
             max_output_tokens=settings.llm_max_tokens,
             temperature=settings.llm_temperature,
+            transport="rest",  # avoid gRPC/SSL issues on macOS
+            thinking_budget=0
         )
 
     if _provider == "ollama":
