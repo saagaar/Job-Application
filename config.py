@@ -70,6 +70,9 @@ class Settings(BaseSettings):
 
     # App
     person_name: str = "Applicant"
+    person_email: str = ""
+    person_phone: str = ""
+    person_address: str = ""
     linkedin_li_at_cookie: str = ""
     google_credentials_path: str = ""
     google_sheets_spreadsheet_id: str = ""

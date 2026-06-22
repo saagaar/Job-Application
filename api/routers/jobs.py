@@ -217,12 +217,29 @@ def generate_cover_letter_endpoint(job_id: int, db: Database = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=502, detail=llm_error_message(e))
 
-    # Append signature
+    # Strip any trailing sign-off the LLM added (Regards / Sincerely / etc.)
+    _sign_off_triggers = ("regards,", "sincerely,", "yours truly,", "warm regards,", "kind regards,")
+    lines = content.rstrip().splitlines()
+    while lines and any(lines[-1].strip().lower().startswith(t) for t in _sign_off_triggers):
+        lines.pop()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    # Also remove a trailing "Name" line if the LLM put it after a sign-off it added
+    if lines and lines[-1].strip() == person_name:
+        lines.pop()
+    content = "\n".join(lines)
+
     signed_content = f"{content}\n\nBest regards,\n{person_name}"
 
     # 3. PDF → outputs/{company}/{person}_coverletter.pdf
     pdf_path = render_cover_letter_pdf(
-        signed_content, person_name, job.company, settings.outputs_path
+        signed_content,
+        person_name,
+        job.company,
+        settings.outputs_path,
+        person_email=settings.person_email,
+        person_phone=settings.person_phone,
+        person_address=settings.person_address,
     )
 
     # 1. DB blob + path
