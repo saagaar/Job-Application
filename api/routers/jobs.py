@@ -12,6 +12,7 @@ from api.schemas import (
     ScoreResponse,
     SingleJobScoreResponse,
     CoverLetterResponse,
+    CVGenerateResponse,
     GenerateRequest,
     GenerateResponse,
     ImportRequest,
@@ -198,6 +199,65 @@ def score_job_by_id(job_id: int, db: Database = Depends(get_db)):
         "gaps": result["gaps"],
         "reasoning": result["reasoning"],
     }
+
+
+@router.post("/{job_id}/cv", response_model=CVGenerateResponse)
+def generate_cv_endpoint(job_id: int, db: Database = Depends(get_db)):
+    """Generate a tailored CV (DOCX + PDF) for a specific job."""
+    from generators.docx_builder import DocxBuilder
+    from generators.pdf_renderer import PdfRenderer
+    from agents.tailor_agent import TailorAgent
+    from providers.llm_factory import create_llm
+    from services.job_service import _sync_exports
+    from utils.cv_contact_parser import parse_contact
+
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    settings = get_settings()
+    cv_content = settings.cv_path.read_text(encoding="utf-8").strip()
+    if not cv_content:
+        raise HTTPException(status_code=400, detail="master_cv.md is empty — fill it in first.")
+
+    personal_stories = ""
+    if settings.personal_stories_path.exists():
+        personal_stories = settings.personal_stories_path.read_text(encoding="utf-8").strip()
+
+    contact = parse_contact(cv_content)
+    person_name     = contact["name"]     or settings.person_name
+    person_email    = contact["email"]    or settings.person_email
+    person_phone    = contact["phone"]    or settings.person_phone
+    person_address  = contact["address"]  or settings.person_address
+    person_linkedin = contact["linkedin"] or settings.person_linkedin
+
+    try:
+        llm    = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
+        agent  = TailorAgent(llm, settings)
+        tailored = agent.tailor_cv(
+            job.description, cv_content, job.company, job.title,
+            personal_stories=personal_stories,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=llm_error_message(e))
+
+    template = settings.cv_template or "professional"
+    builder  = DocxBuilder()
+    renderer = PdfRenderer()
+
+    cv_docx = builder.build_cv(
+        tailored, person_name, job.company, template,
+        person_email=person_email,
+        person_phone=person_phone,
+        person_address=person_address,
+        person_linkedin=person_linkedin,
+    )
+    cv_pdf = renderer.render_cv(cv_docx)
+
+    db.update_job(job_id, cv_path=str(cv_pdf))
+    _sync_exports(db.get_all_jobs(), settings)
+
+    return {"cv_docx": str(cv_docx), "cv_pdf": str(cv_pdf)}
 
 
 @router.post("/{job_id}/cover-letter", response_model=CoverLetterResponse)

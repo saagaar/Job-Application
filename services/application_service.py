@@ -16,6 +16,7 @@ def generate_application(
     settings: Settings | None = None,
 ) -> dict[str, Path]:
     from agents.tailor_agent import TailorAgent
+    from utils.cv_contact_parser import parse_contact
 
     settings = settings or get_settings()
     db = Database()
@@ -27,21 +28,43 @@ def generate_application(
     if not cv_content:
         raise ValueError("master_cv.md is empty. Fill it in before generating applications.")
 
+    personal_stories = ""
+    if settings.personal_stories_path.exists():
+        personal_stories = settings.personal_stories_path.read_text(encoding="utf-8").strip()
+
+    contact = parse_contact(cv_content)
+    person_name    = contact["name"]    or settings.person_name
+    person_email   = contact["email"]   or settings.person_email
+    person_phone   = contact["phone"]   or settings.person_phone
+    person_address = contact["address"] or settings.person_address
+    person_linkedin = contact["linkedin"] or settings.person_linkedin
+
     llm = create_llm(settings, provider=settings.cv_llm_provider, model=settings.cv_llm_model)
     agent = TailorAgent(llm, settings)
-    tailored = agent.tailor_cv(job.description, cv_content, job.company, job.title)
+    tailored = agent.tailor_cv(
+        job.description, cv_content, job.company, job.title,
+        personal_stories=personal_stories,
+    )
 
     builder = DocxBuilder()
     renderer = PdfRenderer()
 
-    cv_docx = builder.build_cv(tailored, settings.person_name, job.company, template)
+    cv_docx = builder.build_cv(
+        tailored, person_name, job.company, template,
+        person_email=person_email,
+        person_phone=person_phone,
+        person_address=person_address,
+        person_linkedin=person_linkedin,
+    )
     cv_pdf = renderer.render_cv(cv_docx)
+
+    db.update_job(job_id, cv_path=str(cv_pdf))
 
     paths: dict[str, Path] = {"cv_docx": cv_docx, "cv_pdf": cv_pdf}
 
     if cover_letter_content:
         cl_docx = builder.build_cover_letter(
-            cover_letter_content, settings.person_name, job.company, template
+            cover_letter_content, person_name, job.company, template
         )
         cl_pdf = renderer.render_cover_letter(cl_docx)
         paths["cl_docx"] = cl_docx

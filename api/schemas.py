@@ -90,3 +90,8 @@ class SingleJobScoreResponse(BaseModel):
 class CoverLetterResponse(BaseModel):
     content: str
     docx_path: str
+
+
+class CVGenerateResponse(BaseModel):
+    cv_docx: str
+    cv_pdf: str

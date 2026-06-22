@@ -8,6 +8,23 @@ from docx import Document
 from fpdf import FPDF
 
 
+def _to_latin1(text: str) -> str:
+    """Sanitise Unicode punctuation so fpdf 1.7.2 (latin-1 only) doesn't crash."""
+    replacements = {
+        "–": "-", "—": "--",   # en-dash, em-dash
+        "‘": "'", "’": "'",    # curly single quotes
+        "“": '"', "”": '"',    # curly double quotes
+        "…": "...",                 # ellipsis
+        " ": " ",                   # non-breaking space
+        "•": "-",                   # bullet
+        "■": "-",                   # black square bullet
+        "●": "-",                   # filled circle bullet
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 class PdfRenderer:
     def render_cv(self, docx_path: Path, output_path: Optional[Path] = None) -> Path:
         out = output_path or docx_path.with_suffix(".pdf")
@@ -32,7 +49,7 @@ class PdfRenderer:
 
         for el in elements:
             kind = el["type"]
-            text = el["text"]
+            text = _to_latin1(el["text"])
             if not text.strip():
                 pdf.ln(3)
                 continue
@@ -57,7 +74,7 @@ class PdfRenderer:
                 pdf.set_font("Helvetica", "", 10)
                 pdf.set_text_color(0, 0, 0)
                 pdf.set_x(pdf.get_x() + 5)
-                pdf.multi_cell(0, 5, f"• {text}")
+                pdf.multi_cell(0, 5, f"- {text}")
             elif kind == "italic":
                 pdf.set_font("Helvetica", "I", 9)
                 pdf.set_text_color(100, 100, 100)
