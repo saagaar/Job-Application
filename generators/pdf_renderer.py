@@ -60,17 +60,40 @@ class PdfRenderer:
                 pdf.set_font("Helvetica", "B", 18)
                 pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 10, text, ln=True, align="C")
+            elif kind == "linkedin":
+                import re as _re
+                url = el.get("link", "")
+                url_match = _re.search(r'linkedin\.com/in/[\w\-]+', el.get("text", ""), _re.I)
+                url_text = url_match.group() if url_match else el.get("text", "").strip()
+                badge_w, badge_h, gap = 6.5, 4.5, 1.5
+                pdf.set_font("Helvetica", "", 9)
+                url_text_w = pdf.get_string_width(url_text)
+                total_w = badge_w + gap + url_text_w
+                start_x = 20 + (170 - total_w) / 2
+                y = pdf.get_y() + 1
+                pdf.set_fill_color(0, 119, 181)
+                pdf.rect(start_x, y, badge_w, badge_h, "F")
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font("Helvetica", "B", 7)
+                pdf.set_xy(start_x, y + 0.3)
+                pdf.cell(badge_w, badge_h - 0.3, "in", align="C")
+                pdf.set_text_color(51, 51, 51)
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_xy(start_x + badge_w + gap, y + 0.3)
+                link_target = url if url else ("https://" + url_text)
+                pdf.cell(url_text_w + 1, badge_h - 0.3, url_text, link=link_target)
+                pdf.ln(badge_h + 2)
             elif kind == "heading1":
                 pdf.ln(4)
                 pdf.set_font("Helvetica", "B", 12)
                 pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 7, text.upper(), ln=True)
-                pdf.set_draw_color(46, 116, 181)
+                pdf.set_draw_color(180, 180, 180)
                 pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 170, pdf.get_y())
                 pdf.ln(1)
             elif kind == "heading2":
                 pdf.set_font("Helvetica", "B", 11)
-                pdf.set_text_color(46, 116, 181)
+                pdf.set_text_color(51, 51, 51)
                 pdf.cell(0, 6, text, ln=True)
             elif kind == "bullet":
                 pdf.set_font("Helvetica", "", 10)
@@ -93,11 +116,14 @@ class PdfRenderer:
         return out_path
 
     def _docx_to_elements(self, doc: Document) -> list[dict]:
+        import re as _re
         from docx.enum.text import WD_ALIGN_PARAGRAPH
 
         elements = []
         paragraphs = list(doc.paragraphs)
         for i, para in enumerate(paragraphs):
+            # full_text includes text inside hyperlink elements; para.text does not
+            full_text = "".join(para._p.itertext()).strip()
             text = para.text.strip()
             style_name = (para.style.name or "").lower()
             centered = para.alignment == WD_ALIGN_PARAGRAPH.CENTER
@@ -112,10 +138,17 @@ class PdfRenderer:
                 kind = "bullet"
             elif para.runs and all(r.font.italic for r in para.runs if r.text.strip()):
                 kind = "italic"
+            elif "linkedin.com" in full_text.lower():
+                url_match = _re.search(r'(?:https?://)?linkedin\.com/in/[\w\-]+', full_text, _re.I)
+                url_val = url_match.group() if url_match else full_text
+                if url_val and not url_val.startswith("http"):
+                    url_val = "https://" + url_val
+                elements.append({"type": "linkedin", "text": full_text, "link": url_val, "centered": True})
+                continue
             else:
                 kind = "body"
 
-            elements.append({"type": kind, "text": text, "centered": centered})
+            elements.append({"type": kind, "text": full_text or text, "centered": centered})
         return elements
 
     def _try_macos_textutil(self, docx_path: Path, pdf_path: Path) -> bool:

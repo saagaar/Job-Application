@@ -21,7 +21,7 @@ def _default_template() -> dict:
             "name_header": {"name": "Calibri", "size": 22, "bold": True,  "color": "000000"},
             "contact":     {"name": "Calibri", "size": 10, "bold": False, "color": "444444"},
             "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "000000"},
-            "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "2E74B5"},
+            "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "333333"},
             "body":        {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
             "bullet":      {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
             "dates":       {"name": "Calibri", "size": 10, "bold": False, "color": "666666"},
@@ -134,7 +134,7 @@ def _detect_template_from_docx(doc) -> dict:
         elif not heading2_done and (
             "heading 2" in style_name or (font_size and font_size >= 11 and is_bold)
         ):
-            template["fonts"]["heading2"] = make(11, True, "2E74B5")
+            template["fonts"]["heading2"] = make(11, True, "333333")
             heading2_done = True
         elif not body_done and not is_bold:
             template["fonts"]["body"] = make(10, False, "000000")

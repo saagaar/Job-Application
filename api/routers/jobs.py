@@ -251,6 +251,7 @@ def generate_cv_endpoint(job_id: int, db: Database = Depends(get_db)):
         person_phone=person_phone,
         person_address=person_address,
         person_linkedin=person_linkedin,
+        outputs_root=settings.outputs_path,
     )
     cv_pdf = renderer.render_cv(cv_docx)
 

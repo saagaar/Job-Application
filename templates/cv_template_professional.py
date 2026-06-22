@@ -5,7 +5,7 @@ TEMPLATE = {
         "name_header": {"name": "Calibri", "size": 22, "bold": True, "color": "000000"},
         "contact":     {"name": "Calibri", "size": 10, "bold": False, "color": "444444"},
         "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "000000"},
-        "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "2E74B5"},
+        "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "333333"},
         "body":        {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
         "bullet":      {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
         "dates":       {"name": "Calibri", "size": 10, "bold": False, "color": "666666"},

@@ -35,7 +35,46 @@ def _apply_font(run, font_def: dict) -> None:
     run.font.color.rgb = _hex_to_rgb(font_def.get("color", "000000"))
 
 
-def _add_bottom_border(p, color: str = "2E74B5") -> None:
+def _add_hyperlink_run(paragraph, text: str, url: str, font_def: dict) -> None:
+    """Append a clickable hyperlink run to an existing paragraph via XML."""
+    import docx.opc.constants as _opc
+
+    part = paragraph.part
+    r_id = part.relate_to(url, _opc.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+
+    hl = OxmlElement("w:hyperlink")
+    hl.set(qn("r:id"), r_id)
+
+    r = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    rFonts = OxmlElement("w:rFonts")
+    rFonts.set(qn("w:ascii"), font_def.get("name", "Calibri"))
+    rFonts.set(qn("w:hAnsi"), font_def.get("name", "Calibri"))
+    rPr.append(rFonts)
+
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), str(int(font_def.get("size", 10) * 2)))
+    rPr.append(sz)
+
+    color_el = OxmlElement("w:color")
+    color_el.set(qn("w:val"), font_def.get("color", "333333"))
+    rPr.append(color_el)
+
+    u = OxmlElement("w:u")
+    u.set(qn("w:val"), "single")
+    rPr.append(u)
+
+    r.append(rPr)
+    t = OxmlElement("w:t")
+    t.text = text
+    t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    r.append(t)
+    hl.append(r)
+    paragraph._p.append(hl)
+
+
+def _add_bottom_border(p, color: str = "CCCCCC") -> None:
     """Add a bottom border to a paragraph (used as section divider)."""
     pPr = p._p.get_or_add_pPr()
     pBdr = OxmlElement("w:pBdr")
@@ -68,8 +107,8 @@ class DocxBuilder:
         person_phone: str = "",
         person_address: str = "",
         person_linkedin: str = "",
+        outputs_root: Path | None = None,
     ) -> Path:
-        RESUMES_DIR.mkdir(parents=True, exist_ok=True)
         template = _engine.load(template_name)
         fonts   = template["fonts"]
         spacing = template["spacing"]
@@ -91,13 +130,30 @@ class DocxBuilder:
             cp.paragraph_format.space_after = Pt(1)
             _apply_font(cp.add_run("   |   ".join(contact_parts)), fonts["contact"])
 
-        # ── LinkedIn row ──────────────────────────────────────────────────────
+        # ── LinkedIn row: [in] badge + clickable URL ──────────────────────────
         if person_linkedin.strip():
-            li_display = re.sub(r"^https?://", "", person_linkedin.strip()).rstrip("/")
+            li_raw = person_linkedin.strip()
+            li_url = li_raw if li_raw.startswith("http") else "https://" + li_raw
+            li_display = re.sub(r"^https?://", "", li_raw).rstrip("/")
+
             lp = doc.add_paragraph()
             lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
             lp.paragraph_format.space_after = Pt(3)
-            _apply_font(lp.add_run(li_display), {**fonts["contact"], "color": "0077B5"})
+
+            # Badge: white "in" on LinkedIn-blue background (brand icon — stays blue)
+            badge_run = lp.add_run(" in ")
+            _apply_font(badge_run, {"name": fonts["contact"]["name"], "size": 8, "bold": True, "color": "FFFFFF"})
+            rPr = badge_run._r.get_or_add_rPr()
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:val"), "clear")
+            shd.set(qn("w:color"), "auto")
+            shd.set(qn("w:fill"), "0077B5")
+            rPr.append(shd)
+
+            lp.add_run("  ")
+
+            # Clickable URL in dark grey (no blue in the CV text)
+            _add_hyperlink_run(lp, li_display, li_url, {**fonts["contact"], "color": "333333"})
 
         # Separator line under header
         sep_p = doc.add_paragraph()
@@ -134,8 +190,8 @@ class DocxBuilder:
                 p = doc.add_paragraph()
                 p.paragraph_format.space_after = Pt(2)
                 label = label_map.get(key, key.replace("_", " ").capitalize())
-                # Label: colour only (no bold) so values never inherit highlight
-                _apply_font(p.add_run(f"{label}: "), {**fonts["body"], "color": "2E74B5"})
+                # Label: slightly darker than body, no bold, so values don't inherit highlight
+                _apply_font(p.add_run(f"{label}: "), {**fonts["body"], "color": "555555"})
                 _apply_font(p.add_run(", ".join(items)), fonts["body"])
 
         # ── Experience ────────────────────────────────────────────────────────
@@ -193,7 +249,12 @@ class DocxBuilder:
                     p2.paragraph_format.space_after = Pt(2)
                     _apply_font(p2.add_run(year_note), fonts["dates"])
 
-        out_path = RESUMES_DIR / f"CV_{_safe_filename(person_name)}_{_safe_filename(company)}.docx"
+        if outputs_root is not None:
+            out_dir = outputs_root / _safe_filename(company)
+        else:
+            out_dir = RESUMES_DIR
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{_safe_filename(person_name)}_cv.docx"
         doc.save(out_path)
         return out_path
 

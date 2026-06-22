@@ -55,6 +55,7 @@ def generate_application(
         person_phone=person_phone,
         person_address=person_address,
         person_linkedin=person_linkedin,
+        outputs_root=settings.outputs_path,
     )
     cv_pdf = renderer.render_cv(cv_docx)
 
