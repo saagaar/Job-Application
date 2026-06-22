@@ -204,13 +204,24 @@ def score_job_by_id(job_id: int, db: Database = Depends(get_db)):
 def generate_cover_letter_endpoint(job_id: int, db: Database = Depends(get_db)):
     from generators.cover_letter_pdf import render_cover_letter_pdf
     from services.job_service import _sync_exports
+    from utils.cv_contact_parser import parse_contact
 
     job = db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     settings = get_settings()
-    person_name = settings.person_name
+
+    # Parse contact details from the CV (source of truth); fall back to config
+    cv_text = settings.cv_path.read_text(encoding="utf-8") if settings.cv_path.exists() else ""
+    cv_contact = parse_contact(cv_text)
+
+    person_name    = cv_contact["name"]    or settings.person_name
+    person_email   = cv_contact["email"]   or settings.person_email
+    person_phone   = cv_contact["phone"]   or settings.person_phone
+    person_address = cv_contact["address"] or settings.person_address
+    # LinkedIn URL is rarely in the CV text; config is primary, CV URL wins if found
+    person_linkedin = cv_contact["linkedin"] or settings.person_linkedin
 
     try:
         content = application_service.generate_cover_letter(job_id, person_name)
@@ -224,23 +235,22 @@ def generate_cover_letter_endpoint(job_id: int, db: Database = Depends(get_db)):
         lines.pop()
     while lines and not lines[-1].strip():
         lines.pop()
-    # Also remove a trailing "Name" line if the LLM put it after a sign-off it added
     if lines and lines[-1].strip() == person_name:
         lines.pop()
     content = "\n".join(lines)
 
     signed_content = f"{content}\n\nBest regards,\n{person_name}"
 
-    # 3. PDF → outputs/{company}/{person}_coverletter.pdf
+    # PDF → outputs/{company}/{person}_coverletter.pdf
     pdf_path = render_cover_letter_pdf(
         signed_content,
         person_name,
         job.company,
         settings.outputs_path,
-        person_email=settings.person_email,
-        person_phone=settings.person_phone,
-        person_address=settings.person_address,
-        person_linkedin=settings.person_linkedin,
+        person_email=person_email,
+        person_phone=person_phone,
+        person_address=person_address,
+        person_linkedin=person_linkedin,
     )
 
     # 1. DB blob + path
