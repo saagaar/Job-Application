@@ -58,12 +58,12 @@ class PdfRenderer:
 
             if kind == "name_header":
                 pdf.set_font("Helvetica", "B", 18)
-                pdf.set_text_color(31, 56, 100)
+                pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 10, text, ln=True, align="C")
             elif kind == "heading1":
                 pdf.ln(4)
                 pdf.set_font("Helvetica", "B", 12)
-                pdf.set_text_color(31, 56, 100)
+                pdf.set_text_color(0, 0, 0)
                 pdf.cell(0, 7, text.upper(), ln=True)
                 pdf.set_draw_color(46, 116, 181)
                 pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 170, pdf.get_y())

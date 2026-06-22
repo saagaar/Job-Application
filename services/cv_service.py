@@ -18,9 +18,9 @@ def _default_template() -> dict:
         "name": "Uploaded",
         "page_margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
         "fonts": {
-            "name_header": {"name": "Calibri", "size": 22, "bold": True,  "color": "1F3864"},
+            "name_header": {"name": "Calibri", "size": 22, "bold": True,  "color": "000000"},
             "contact":     {"name": "Calibri", "size": 10, "bold": False, "color": "444444"},
-            "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "1F3864"},
+            "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "000000"},
             "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "2E74B5"},
             "body":        {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
             "bullet":      {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
@@ -124,12 +124,12 @@ def _detect_template_from_docx(doc) -> dict:
             }
 
         if not name_done and font_size and font_size >= 16:
-            template["fonts"]["name_header"] = make(22, True, "1F3864")
+            template["fonts"]["name_header"] = make(22, True, "000000")
             name_done = True
         elif not heading1_done and (
             "heading 1" in style_name or (font_size and font_size >= 12 and is_bold)
         ):
-            template["fonts"]["heading1"] = make(13, True, "1F3864")
+            template["fonts"]["heading1"] = make(13, True, "000000")
             heading1_done = True
         elif not heading2_done and (
             "heading 2" in style_name or (font_size and font_size >= 11 and is_bold)
@@ -234,8 +234,8 @@ def _pdf_to_markdown_and_template(pdf_path: Path) -> tuple[str, dict]:
     )
 
     template = _default_template()
-    template["fonts"]["name_header"] = _span_font(name_span, 22, True, "1F3864")
-    template["fonts"]["heading1"]    = _span_font(h1_span,   13, True, "1F3864")
+    template["fonts"]["name_header"] = _span_font(name_span, 22, True, "000000")
+    template["fonts"]["heading1"]    = _span_font(h1_span,   13, True, "000000")
     template["fonts"]["body"]        = _span_font(body_span, 10, False, "000000")
     template["fonts"]["bullet"]      = _span_font(body_span, 10, False, "000000")
 

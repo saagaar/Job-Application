@@ -103,7 +103,7 @@ class DocxBuilder:
         sep_p = doc.add_paragraph()
         sep_p.paragraph_format.space_before = Pt(2)
         sep_p.paragraph_format.space_after = Pt(4)
-        _add_bottom_border(sep_p, color="1F3864")
+        _add_bottom_border(sep_p, color="CCCCCC")
 
         # ── Summary ───────────────────────────────────────────────────────────
         summary: str = tailored_data.get("summary", "")

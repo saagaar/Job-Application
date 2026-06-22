@@ -57,7 +57,7 @@ def render_cover_letter_pdf(
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{_safe_name(person_name)}_coverletter.pdf"
 
-    NAVY   = (21, 43, 85)
+    NAVY   = (0, 0, 0)
     GREY   = (90, 90, 90)
     BODY   = (30, 30, 30)
     LI_BLU = (0, 119, 181)

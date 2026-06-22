@@ -2,9 +2,9 @@ TEMPLATE = {
     "name": "Professional",
     "page_margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},  # inches
     "fonts": {
-        "name_header": {"name": "Calibri", "size": 22, "bold": True, "color": "1F3864"},
+        "name_header": {"name": "Calibri", "size": 22, "bold": True, "color": "000000"},
         "contact":     {"name": "Calibri", "size": 10, "bold": False, "color": "444444"},
-        "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "1F3864"},
+        "heading1":    {"name": "Calibri", "size": 13, "bold": True,  "color": "000000"},
         "heading2":    {"name": "Calibri", "size": 11, "bold": True,  "color": "2E74B5"},
         "body":        {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
         "bullet":      {"name": "Calibri", "size": 10, "bold": False, "color": "000000"},
