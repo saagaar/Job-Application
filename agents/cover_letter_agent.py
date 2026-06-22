@@ -43,7 +43,9 @@ Hard rules:
 - Do NOT list skills — show them through examples
 - Gaps: do not mention unless you can frame as genuine active learning with evidence
 - Address the reader directly: "your team", "you are building", "what you are solving"
-- Return plain text only — no markdown, no headers, no greeting line, no sign-off
+- Start with a greeting on its own line: "Dear Hiring Manager," (use a specific name
+  only if one is clearly stated in the job description)
+- Return plain text only — no markdown, no headers
 """
 
 REFINE_SYSTEM = """\
